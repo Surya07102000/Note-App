@@ -1,0 +1,75 @@
+<nav class="navbar">
+  <div class="nav-container">
+    <!-- Logo -->
+    <a href="#" class="nav-brand">NoteApp</a>
+
+    <!-- Desktop Menu -->
+    <ul class="nav-menu">
+      <li class="nav-item" *ngFor="let item of menuItems">
+        <a [routerLink]="item.path"
+           routerLinkActive="active"
+           class="nav-link">
+          <i class="material-icons">{{item.icon}}</i>
+          {{item.label}}
+        </a>
+      </li>
+    </ul>
+
+    <!-- User Menu - Desktop only -->
+    <div class="user-menu desktop-only">
+      <div class="user-info">
+        <div class="user-avatar">
+          {{getUserInitials()}}
+        </div>
+        <span class="user-name">{{getCurrentUser()?.name || 'User'}}</span>
+      </div>
+      <button (click)="logout()" class="btn-logout">
+        <i class="material-icons">logout</i>
+        Logout
+      </button>
+    </div>
+
+    <!-- User Info - Mobile/Tablet (without logout) -->
+    <div class="user-info-mobile mobile-tablet-only">
+      <div class="user-avatar">
+        {{getUserInitials()}}
+      </div>
+    </div>
+
+    <!-- Mobile menu button -->
+    <button class="mobile-menu-toggle" 
+            (click)="isMenuOpen = !isMenuOpen">
+      <i class="material-icons">{{isMenuOpen ? 'close' : 'menu'}}</i>
+    </button>
+  </div>
+
+  <!-- Mobile Menu -->
+  <ul class="nav-menu" [class.open]="isMenuOpen" *ngIf="isMenuOpen">
+    <!-- User info in mobile menu -->
+    <li class="nav-item user-mobile-header">
+      <div class="user-info-full">
+        <div class="user-avatar">
+          {{getUserInitials()}}
+        </div>
+        <span class="user-name">{{getCurrentUser()?.name || 'User'}}</span>
+      </div>
+    </li>
+    
+    <li class="nav-item" *ngFor="let item of menuItems">
+      <a [routerLink]="item.path"
+         routerLinkActive="active"
+         class="nav-link"
+         (click)="isMenuOpen = false">
+        <i class="material-icons">{{item.icon}}</i>
+        {{item.label}}
+      </a>
+    </li>
+    
+    <li class="nav-item">
+      <button (click)="logout(); isMenuOpen = false" class="btn-logout">
+        <i class="material-icons">logout</i>
+        Logout
+      </button>
+    </li>
+  </ul>
+</nav> 

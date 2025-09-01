@@ -1,0 +1,854 @@
+<div class="notes-container">
+  <!-- Header -->
+  <div class="notes-header">
+    <h1 class="notes-title">Notes</h1>
+    <button class="btn-add-note" (click)="openCreateForm()">
+      <i class="material-icons">add</i>
+      Add Note
+    </button>
+  </div>
+
+  <!-- Error Message -->
+  <div *ngIf="error" class="error-message">
+    {{ error }}
+    <button (click)="clearError()" class="error-close">×</button>
+  </div>
+
+  <!-- Search and Filters -->
+  <div class="filters-section">
+    <!-- Search -->
+    <div class="search-box">
+      <i class="material-icons">search</i>
+      <input 
+        type="text" 
+        placeholder="Search notes..." 
+        [(ngModel)]="searchTerm"
+        (input)="onSearchChange()"
+        class="search-input">
+    </div>
+
+    <!-- Tag Filters -->
+    <div class="tag-filters" *ngIf="allTags.length > 0">
+      <span class="filter-label">Filter by tags:</span>
+      <div class="tag-buttons">
+        <button 
+          *ngFor="let tag of allTags"
+          [class.active]="selectedTags.includes(tag)"
+          (click)="onTagFilterChange(tag)"
+          class="tag-filter-btn">
+          {{ tag }}
+        </button>
+      </div>
+    </div>
+
+    <!-- Archive Toggle -->
+    <div class="archive-toggle">
+      <label class="toggle-label">
+        <input 
+          type="checkbox" 
+          [(ngModel)]="showArchived"
+          (ngModelChange)="applyFilters()">
+        <span class="toggle-text">Show Archived</span>
+      </label>
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  <div *ngIf="loading" class="loading-state">
+    <i class="material-icons loading-icon">hourglass_empty</i>
+    <p>Loading notes...</p>
+  </div>
+
+  <!-- Notes Grid -->
+  <div *ngIf="!loading" class="notes-grid">
+    <div *ngFor="let note of filteredNotes" class="note-card" [class.archived]="note.isArchived">
+      <!-- Note Header -->
+      <div class="note-header">
+        <h3 class="note-title">{{ note.title }}</h3>
+        <div class="note-actions">
+          <button (click)="openViewNote(note)" class="btn-view" title="View Details">
+            <i class="material-icons">visibility</i>
+          </button>
+          <button *ngIf="canEdit(note)" (click)="openEditForm(note)" class="btn-edit" title="Edit">
+            <i class="material-icons">edit</i>
+          </button>
+          <button *ngIf="canShare(note)" (click)="openShareForm(note)" class="btn-share" title="Share">
+            <i class="material-icons">share</i>
+          </button>
+          <button (click)="toggleArchive(note)" class="btn-archive" [title]="note.isArchived ? 'Unarchive' : 'Archive'">
+            <i class="material-icons">{{ note.isArchived ? 'unarchive' : 'archive' }}</i>
+          </button>
+          <button *ngIf="canDelete(note)" (click)="deleteNote(note._id!)" class="btn-delete" title="Delete">
+            <i class="material-icons">delete</i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Note Content -->
+      <div class="note-content" [innerHTML]="note.content"></div>
+
+      <!-- Note Tags -->
+      <div class="note-tags" *ngIf="note.tags.length > 0">
+        <span *ngFor="let tag of note.tags" class="tag">{{ tag }}</span>
+      </div>
+
+      <!-- Note Meta -->
+      <div class="note-meta">
+        <span class="note-date">
+          <i class="material-icons">schedule</i>
+          {{ formatDate(note.updatedAt || note.createdAt!) }}
+        </span>
+        <span *ngIf="note.isArchived" class="archived-badge">
+          <i class="material-icons">archive</i>
+          Archived
+        </span>
+      </div>
+
+      <!-- Note Ownership & Sharing Info -->
+      <div class="note-ownership">
+        <span class="owner-info">
+          <i class="material-icons">person</i>
+          {{ getNoteOwner(note) }}
+        </span>
+        <span *ngIf="!isOwner(note)" class="shared-badge">
+          <i class="material-icons">people</i>
+          Shared with you
+        </span>
+      </div>
+
+      <!-- Shared Users List -->
+      <div *ngIf="getSharedUsers(note).length > 0" class="shared-users">
+        <h4>Shared with:</h4>
+        <div class="shared-user-list">
+          <div *ngFor="let sharedUser of getSharedUsers(note)" class="shared-user-item">
+            <span class="user-name">{{ sharedUser.user.name }}</span>
+            <span class="permission-badge" [class]="'permission-' + sharedUser.permission">
+              {{ sharedUser.permission }}
+            </span>
+            <div *ngIf="canShare(note)" class="shared-user-actions">
+              <select 
+                [value]="sharedUser.permission"
+                (change)="onPermissionChange($event, note, sharedUser)">
+                <option value="read">Read</option>
+                <option value="write">Write</option>
+              </select>
+              <button 
+                (click)="removeSharing(note, sharedUser.user._id)" 
+                class="btn-remove-share"
+                title="Remove sharing">
+                <i class="material-icons">close</i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Empty State -->
+  <div *ngIf="!loading && filteredNotes.length === 0" class="empty-state">
+    <i class="material-icons empty-icon">note</i>
+    <h3>No notes found</h3>
+    <p *ngIf="searchTerm || selectedTags.length > 0 || showArchived">
+      Try adjusting your search or filters
+    </p>
+    <p *ngIf="!searchTerm && selectedTags.length === 0 && !showArchived">
+      Create your first note to get started
+    </p>
+    <div *ngIf="!searchTerm && selectedTags.length === 0 && !showArchived" class="action-buttons">
+      <button class="btn-add-note" (click)="openCreateForm()">
+        <i class="material-icons">add</i>
+        Create Note
+      </button>
+      <button *ngIf="aiServiceAvailable" class="btn-ai-assistant" (click)="openAiAssistant()">
+        <i class="material-icons">psychology</i>
+        AI Assistant
+      </button>
+    </div>
+  </div>
+
+  <!-- Create Note Modal -->
+  <div *ngIf="isCreating" class="modal-overlay" (click)="closeCreateForm()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>Create New Note</h2>
+        <button (click)="closeCreateForm()" class="modal-close">
+          <i class="material-icons">close</i>
+        </button>
+      </div>
+      
+      <form [formGroup]="noteForm" (ngSubmit)="createNote()" class="note-form">
+        <div class="form-group">
+          <label for="title">Title *</label>
+          <input 
+            id="title"
+            type="text" 
+            formControlName="title"
+            placeholder="Enter note title"
+            class="form-input"
+            (blur)="onTitleBlur()">
+          <div *ngIf="noteForm.get('title')?.invalid && noteForm.get('title')?.touched" 
+               class="validation-error">
+            Title is required
+          </div>
+          
+          <!-- AI Content Generation Button -->
+          <div *ngIf="aiServiceAvailable && noteForm.get('title')?.value?.trim()" class="ai-quick-actions">
+            <button 
+              type="button" 
+              (click)="generateContentFromTitle()" 
+              [disabled]="aiLoading"
+              class="btn-ai-generate-content">
+              <i class="material-icons" [class.spinning]="aiLoading">{{ aiLoading ? 'hourglass_empty' : 'auto_awesome' }}</i>
+              {{ aiLoading ? 'Generating...' : 'Generate Content with AI' }}
+            </button>
+            <small class="ai-hint">AI will create content and suggest tags based on your title</small>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="content">Content *</label>
+          <textarea 
+            id="content"
+            formControlName="content"
+            placeholder="Enter note content (supports HTML)"
+            rows="8"
+            class="form-textarea"></textarea>
+          <div *ngIf="noteForm.get('content')?.invalid && noteForm.get('content')?.touched" 
+               class="validation-error">
+            Content is required
+          </div>
+          <small class="form-hint">
+            You can use HTML tags for rich text formatting (e.g., &lt;b&gt;, &lt;i&gt;, &lt;u&gt;, &lt;br&gt;)
+          </small>
+        </div>
+
+        <div class="form-group">
+          <label for="tags">Tags *</label>
+          <input 
+            id="tags"
+            type="text" 
+            formControlName="tags"
+            placeholder="Enter tags separated by commas (e.g., work, important, todo)"
+            class="form-input">
+          <div *ngIf="noteForm.get('tags')?.invalid && noteForm.get('tags')?.touched" 
+               class="validation-error">
+            At least one tag is required
+          </div>
+          <small class="form-hint">
+            Separate multiple tags with commas
+          </small>
+          <button 
+            *ngIf="aiServiceAvailable"
+            type="button" 
+            (click)="generateTagsWithAI(false)" 
+            [disabled]="aiLoading"
+            class="btn-ai-tags">
+            <i class="material-icons" [class.spinning]="aiLoading">{{ aiLoading ? 'hourglass_empty' : 'local_offer' }}</i>
+            {{ aiLoading ? 'Generating...' : 'AI Generate Tags' }}
+          </button>
+        </div>
+
+        <!-- AI Error Display -->
+        <div *ngIf="aiError" class="ai-error" (click)="clearAiError()">
+          <i class="material-icons">error</i>
+          {{ aiError }}
+          <button type="button" class="error-close">×</button>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" (click)="closeCreateForm()" class="btn-cancel">
+            Cancel
+          </button>
+          <button type="submit" [disabled]="noteForm.invalid" class="btn-save">
+            <i class="material-icons">save</i>
+            Create Note
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Edit Note Modal -->
+  <div *ngIf="isEditing" class="modal-overlay" (click)="closeEditForm()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>Edit Note</h2>
+        <button (click)="closeEditForm()" class="modal-close">
+          <i class="material-icons">close</i>
+        </button>
+      </div>
+      
+      <form [formGroup]="editForm" (ngSubmit)="updateNote()" class="note-form">
+        <div class="form-group">
+          <label for="edit-title">Title *</label>
+          <input 
+            id="edit-title"
+            type="text" 
+            formControlName="title"
+            placeholder="Enter note title"
+            class="form-input">
+          <div *ngIf="editForm.get('title')?.invalid && editForm.get('title')?.touched" 
+               class="validation-error">
+            Title is required
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="edit-content">Content *</label>
+          <textarea 
+            id="edit-content"
+            formControlName="content"
+            placeholder="Enter note content (supports HTML)"
+            rows="8"
+            class="form-textarea"></textarea>
+          <div *ngIf="editForm.get('content')?.invalid && editForm.get('content')?.touched" 
+               class="validation-error">
+            Content is required
+          </div>
+          <small class="form-hint">
+            You can use HTML tags for rich text formatting (e.g., &lt;b&gt;, &lt;i&gt;, &lt;u&gt;, &lt;br&gt;)
+          </small>
+        </div>
+
+        <div class="form-group">
+          <label for="edit-tags">Tags *</label>
+          <input 
+            id="edit-tags"
+            type="text" 
+            formControlName="tags"
+            placeholder="Enter tags separated by commas"
+            class="form-input">
+          <div *ngIf="editForm.get('tags')?.invalid && editForm.get('tags')?.touched" 
+               class="validation-error">
+            At least one tag is required
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="checkbox-label">
+            <input type="checkbox" formControlName="isArchived">
+            <span class="checkbox-text">Archive this note</span>
+          </label>
+        </div>
+
+        <!-- AI Enhancement Section for Edit Form -->
+        <div *ngIf="aiServiceAvailable" class="ai-enhancement-section">
+          <h4>🤖 AI Enhancement Tools</h4>
+          <div class="enhancement-options">
+            <select [(ngModel)]="enhancementType" class="form-select" [ngModelOptions]="{standalone: true}">
+              <option *ngFor="let type of getEnhancementTypes()" [value]="type.value">
+                {{ type.label }} - {{ type.description }}
+              </option>
+            </select>
+            
+            <button 
+              type="button" 
+              (click)="enhanceCurrentNote()" 
+              [disabled]="aiLoading"
+              class="btn-enhance">
+              <i class="material-icons" [class.spinning]="aiLoading">{{ aiLoading ? 'hourglass_empty' : 'auto_fix_high' }}</i>
+              {{ aiLoading ? 'Enhancing...' : 'Enhance with AI' }}
+            </button>
+          </div>
+
+          <div class="ai-tools-row">
+            <button 
+              type="button" 
+              (click)="generateTagsWithAI(true)" 
+              [disabled]="aiLoading"
+              class="btn-ai-tags">
+              <i class="material-icons">local_offer</i>
+              Generate Tags
+            </button>
+
+            <button 
+              type="button" 
+              (click)="getWritingSuggestions()" 
+              [disabled]="aiLoading"
+              class="btn-suggestions">
+              <i class="material-icons">lightbulb</i>
+              Get Suggestions
+            </button>
+          </div>
+
+          <!-- Writing Suggestions Display -->
+          <div *ngIf="showSuggestions && writingSuggestions" class="writing-suggestions">
+            <h5>💡 Writing Suggestions:</h5>
+            <div class="suggestions-content" [innerHTML]="writingSuggestions"></div>
+            <button type="button" (click)="showSuggestions = false" class="btn-close-suggestions">Close</button>
+          </div>
+        </div>
+
+        <!-- AI Error Display for Edit Form -->
+        <div *ngIf="aiError" class="ai-error" (click)="clearAiError()">
+          <i class="material-icons">error</i>
+          {{ aiError }}
+          <button type="button" class="error-close">×</button>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" (click)="closeEditForm()" class="btn-cancel">
+            Cancel
+          </button>
+          <button type="submit" [disabled]="editForm.invalid" class="btn-save">
+            <i class="material-icons">save</i>
+            Update Note
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Share Note Modal -->
+  <div *ngIf="isSharing" class="modal-overlay" (click)="closeShareForm()">
+    <div class="modal-content" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>Share Note</h2>
+        <button (click)="closeShareForm()" class="modal-close">
+          <i class="material-icons">close</i>
+        </button>
+      </div>
+      
+      <form [formGroup]="shareForm" (ngSubmit)="shareNote()" class="note-form">
+        <div class="form-group">
+          <label for="share-user">Select User *</label>
+          <div class="user-search-container">
+            <input 
+              type="text"
+              id="share-user"
+              formControlName="userSearch"
+              class="form-input user-search-input"
+              placeholder="Search users by name or email..."
+              (input)="onUserSearchInput($event)"
+              (focus)="onUserSearchFocus()"
+              (blur)="onUserSearchBlur()"
+              autocomplete="off">
+            
+            <button 
+              *ngIf="userSearchTerm"
+              type="button"
+              class="clear-user-btn"
+              (click)="clearUserSelection()"
+              title="Clear selection">
+              <i class="material-icons">close</i>
+            </button>
+
+            <!-- Dropdown list -->
+            <div *ngIf="showUserDropdown && filteredUsers.length > 0" class="user-dropdown">
+              <div 
+                *ngFor="let user of filteredUsers" 
+                class="user-option"
+                (click)="selectUser(user)">
+                <div class="user-info">
+                  <div class="user-name">{{ user.name }}</div>
+                  <div class="user-email">{{ user.email }}</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- No results message -->
+            <div *ngIf="showUserDropdown && filteredUsers.length === 0 && userSearchTerm" class="no-results">
+              No users found matching "{{ userSearchTerm }}"
+            </div>
+          </div>
+          
+          <div *ngIf="shareForm.get('userId')?.invalid && shareForm.get('userId')?.touched" 
+               class="validation-error">
+            Please select a user
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="share-permission">Permission *</label>
+          <select 
+            id="share-permission"
+            formControlName="permission"
+            class="form-select">
+            <option value="read">Read Only</option>
+            <option value="write">Read & Write</option>
+          </select>
+          <small class="form-hint">
+            Read: User can view the note<br>
+            Write: User can view and edit the note
+          </small>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" (click)="closeShareForm()" class="btn-cancel">
+            Cancel
+          </button>
+          <button type="submit" [disabled]="shareForm.invalid" class="btn-save">
+            <i class="material-icons">share</i>
+            Share Note
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- AI Assistant Modal -->
+  <div *ngIf="showAiAssistant" class="modal-overlay" (click)="closeAiAssistant()">
+    <div class="modal-content ai-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>🤖 AI Note Assistant</h2>
+        <button (click)="closeAiAssistant()" class="modal-close">
+          <i class="material-icons">close</i>
+        </button>
+      </div>
+      
+      <div class="ai-assistant-content">
+        <!-- AI Generation Section -->
+        <div class="ai-section" *ngIf="!showTemplates">
+          <h3>Generate New Note</h3>
+          <p class="ai-description">Describe what you want to write about, and AI will create a complete note for you.</p>
+          
+          <div class="form-group">
+            <label for="ai-prompt">What would you like to write about?</label>
+            <textarea 
+              id="ai-prompt"
+              [(ngModel)]="aiPrompt"
+              placeholder="e.g., Create a note about project management best practices, or explain machine learning concepts, or write a meeting agenda for team standup..."
+              class="form-textarea"
+              rows="3"></textarea>
+          </div>
+
+          <!-- AI Options -->
+          <div class="ai-options">
+            <div class="options-row">
+              <div class="option-group">
+                <label for="tone">Tone:</label>
+                <select id="tone" [(ngModel)]="aiOptions.tone" class="form-select">
+                  <option *ngFor="let tone of getToneOptions()" [value]="tone.value">
+                    {{ tone.label }}
+                  </option>
+                </select>
+              </div>
+
+              <div class="option-group">
+                <label for="length">Length:</label>
+                <select id="length" [(ngModel)]="aiOptions.length" class="form-select">
+                  <option *ngFor="let length of getLengthOptions()" [value]="length.value">
+                    {{ length.label }}
+                  </option>
+                </select>
+              </div>
+
+              <div class="option-group">
+                <label for="format">Format:</label>
+                <select id="format" [(ngModel)]="aiOptions.format" class="form-select">
+                  <option *ngFor="let format of getFormatOptions()" [value]="format.value">
+                    {{ format.label }}
+                  </option>
+                </select>
+              </div>
+            </div>
+
+            <div class="checkbox-option">
+              <label>
+                <input type="checkbox" [(ngModel)]="aiOptions.includeExamples">
+                Include examples
+              </label>
+            </div>
+          </div>
+
+          <div class="ai-actions">
+            <button 
+              (click)="generateWithAI()" 
+              [disabled]="!aiPrompt.trim() || aiLoading"
+              class="btn-generate">
+              <i class="material-icons" [class.spinning]="aiLoading">
+                {{ aiLoading ? 'hourglass_empty' : 'auto_awesome' }}
+              </i>
+              {{ aiLoading ? 'Generating...' : 'Generate with AI' }}
+            </button>
+
+            <button 
+              (click)="openTemplateSelection()" 
+              class="btn-templates">
+              <i class="material-icons">description</i>
+              Use Template
+            </button>
+          </div>
+
+          <!-- AI Result Preview -->
+          <div *ngIf="aiResult && !aiLoading" class="ai-result">
+            <h4>Generated Content:</h4>
+            <div class="result-preview">
+              <h5>{{ aiResult.title }}</h5>
+              <p class="content-preview">{{ aiResult.content }}</p>
+              <div class="tags-preview" *ngIf="aiResult.suggestedTags?.length">
+                <strong>Suggested tags:</strong>
+                <span *ngFor="let tag of aiResult.suggestedTags" class="tag-preview">{{ tag }}</span>
+              </div>
+              <div class="result-stats">
+                <small>{{ formatAiInfo(aiResult) }}</small>
+              </div>
+            </div>
+            
+            <div class="result-actions">
+              <button (click)="useAiResult()" class="btn-use-result">
+                <i class="material-icons">note_add</i>
+                Use This Content
+              </button>
+              <button (click)="generateWithAI()" class="btn-regenerate">
+                <i class="material-icons">refresh</i>
+                Generate Again
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Template Selection Section -->
+        <div class="ai-section" *ngIf="showTemplates">
+          <h3>Choose a Template</h3>
+          <p class="ai-description">Select a template type to generate a structured note.</p>
+
+          <div class="template-grid">
+            <div *ngFor="let template of getTemplateTypes()" 
+                 class="template-card" 
+                 [class.selected]="selectedTemplateType === template.value"
+                 (click)="setTemplateType(template.value)">
+              <h4>{{ template.label }}</h4>
+              <p>{{ template.description }}</p>
+            </div>
+          </div>
+
+          <div *ngIf="selectedTemplateType === 'custom'" class="custom-template">
+            <label for="custom-prompt">Describe your custom template:</label>
+            <textarea 
+              id="custom-prompt"
+              [(ngModel)]="customTemplatePrompt"
+              placeholder="Describe what kind of template you need..."
+              class="form-textarea"
+              rows="3"></textarea>
+          </div>
+
+          <div class="template-actions">
+            <button (click)="showTemplates = false" class="btn-back">
+              <i class="material-icons">arrow_back</i>
+              Back
+            </button>
+            <button 
+              (click)="generateTemplate()" 
+              [disabled]="aiLoading || (selectedTemplateType === 'custom' && !customTemplatePrompt.trim())"
+              class="btn-generate">
+              <i class="material-icons" [class.spinning]="aiLoading">
+                {{ aiLoading ? 'hourglass_empty' : 'auto_awesome' }}
+              </i>
+              {{ aiLoading ? 'Generating...' : 'Generate Template' }}
+            </button>
+          </div>
+        </div>
+
+        <!-- AI Error Display -->
+        <div *ngIf="aiError" class="ai-error" (click)="clearAiError()">
+          <i class="material-icons">error</i>
+          {{ aiError }}
+          <button type="button" class="error-close">×</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- View Note Modal -->
+  <div *ngIf="isViewing" class="modal-overlay" (click)="closeViewNote()">
+    <div class="modal-content view-note-modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h2>
+          <i class="material-icons">article</i>
+          {{ viewingNote?.title }}
+        </h2>
+        <button (click)="closeViewNote()" class="modal-close">
+          <i class="material-icons">close</i>
+        </button>
+      </div>
+      
+      <div class="view-note-content" *ngIf="viewingNote">
+        <!-- Note Status Badge -->
+        <div class="note-status-row">
+          <span *ngIf="viewingNote.isArchived" class="status-badge archived">
+            <i class="material-icons">archive</i>
+            Archived
+          </span>
+          <span *ngIf="!viewingNote.isArchived" class="status-badge active">
+            <i class="material-icons">article</i>
+            Active
+          </span>
+          
+          <span class="ownership-badge" [ngClass]="{'owner': isOwner(viewingNote), 'shared': !isOwner(viewingNote)}">
+            <i class="material-icons">{{ isOwner(viewingNote) ? 'person' : 'people' }}</i>
+            {{ isOwner(viewingNote) ? 'Your Note' : 'Shared with you' }}
+          </span>
+        </div>
+
+        <!-- Note Content Display -->
+        <div class="note-content-display">
+          <div class="content-text" [innerHTML]="viewingNote.content"></div>
+        </div>
+
+        <!-- Note Tags -->
+        <div class="note-tags-display" *ngIf="viewingNote.tags && viewingNote.tags.length > 0">
+          <h4><i class="material-icons">local_offer</i> Tags</h4>
+          <div class="tags-container">
+            <span *ngFor="let tag of viewingNote.tags" class="tag-display">{{ tag }}</span>
+          </div>
+        </div>
+
+        <!-- Note Metadata -->
+        <div class="note-metadata">
+          <div class="metadata-grid">
+            <div class="metadata-item">
+              <span class="metadata-label">
+                <i class="material-icons">person</i>
+                Created by
+              </span>
+              <span class="metadata-value">{{ getNoteOwner(viewingNote) }}</span>
+            </div>
+            
+            <div class="metadata-item">
+              <span class="metadata-label">
+                <i class="material-icons">schedule</i>
+                Created
+              </span>
+              <span class="metadata-value">{{ formatDate(viewingNote.createdAt!) }}</span>
+            </div>
+            
+            <div class="metadata-item" *ngIf="viewingNote.updatedAt !== viewingNote.createdAt">
+              <span class="metadata-label">
+                <i class="material-icons">update</i>
+                Last updated
+              </span>
+              <span class="metadata-value">{{ formatDate(viewingNote.updatedAt!) }}</span>
+            </div>
+            
+            <div class="metadata-item">
+              <span class="metadata-label">
+                <i class="material-icons">text_fields</i>
+                Word count
+              </span>
+              <span class="metadata-value">{{ getWordCount(viewingNote.content) }} words</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sharing Information -->
+        <div class="sharing-info" *ngIf="isOwner(viewingNote) && getSharedUsers(viewingNote).length > 0">
+          <h4><i class="material-icons">share</i> Shared with</h4>
+          <div class="shared-users-list">
+            <div *ngFor="let sharedUser of getSharedUsers(viewingNote)" class="shared-user-item">
+              <div class="user-info">
+                <span class="user-name">{{ sharedUser.user.name }}</span>
+                <span class="user-email">{{ sharedUser.user.email }}</span>
+              </div>
+              <div class="permission-info">
+                <span class="permission-badge" [ngClass]="{'read': sharedUser.permission === 'read', 'write': sharedUser.permission === 'write'}">
+                  <i class="material-icons">{{ sharedUser.permission === 'write' ? 'edit' : 'visibility' }}</i>
+                  {{ sharedUser.permission === 'write' ? 'Can Edit' : 'Can View' }}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Actions Section -->
+        <div class="view-note-actions">
+          <h4><i class="material-icons">settings</i> Quick Actions</h4>
+          
+          <div class="actions-grid">
+            <!-- Edit Action -->
+            <button *ngIf="canEdit(viewingNote)" 
+                    (click)="editFromView()" 
+                    class="action-btn edit-action">
+              <i class="material-icons">edit</i>
+              <span>Edit Note</span>
+              <small>Make changes to content</small>
+            </button>
+
+            <!-- Share Action -->
+            <button *ngIf="canShare(viewingNote)" 
+                    (click)="shareFromView()" 
+                    class="action-btn share-action">
+              <i class="material-icons">share</i>
+              <span>Share Note</span>
+              <small>Share with others</small>
+            </button>
+
+            <!-- Archive/Unarchive Action -->
+            <button (click)="archiveFromView()" 
+                    class="action-btn archive-action"
+                    [ngClass]="{'unarchive': viewingNote.isArchived}">
+              <i class="material-icons">{{ viewingNote.isArchived ? 'unarchive' : 'archive' }}</i>
+              <span>{{ viewingNote.isArchived ? 'Unarchive' : 'Archive' }}</span>
+              <small>{{ viewingNote.isArchived ? 'Move to active notes' : 'Move to archive' }}</small>
+            </button>
+
+            <!-- Delete Action -->
+            <button *ngIf="canDelete(viewingNote)" 
+                    (click)="deleteFromView()" 
+                    class="action-btn delete-action">
+              <i class="material-icons">delete</i>
+              <span>Delete Note</span>
+              <small>Permanently remove</small>
+            </button>
+
+            <!-- Duplicate Action -->
+            <button *ngIf="canEdit(viewingNote)" 
+                    (click)="duplicateFromView()" 
+                    class="action-btn duplicate-action">
+              <i class="material-icons">content_copy</i>
+              <span>Duplicate</span>
+              <small>Create a copy</small>
+            </button>
+
+            <!-- Export Action -->
+            <button (click)="exportFromView()" 
+                    class="action-btn export-action">
+              <i class="material-icons">download</i>
+              <span>Export</span>
+              <small>Download as text</small>
+            </button>
+          </div>
+        </div>
+
+        <!-- AI Enhancement Section for View -->
+        <div *ngIf="aiServiceAvailable && canEdit(viewingNote)" class="view-ai-section">
+          <h4><i class="material-icons">psychology</i> AI Tools</h4>
+          
+          <div class="ai-tools-grid">
+            <button (click)="enhanceFromView()" 
+                    [disabled]="aiLoading"
+                    class="ai-tool-btn enhance-btn">
+              <i class="material-icons" [class.spinning]="aiLoading">auto_fix_high</i>
+              <span>Enhance Content</span>
+              <small>Improve with AI</small>
+            </button>
+
+            <button (click)="generateTagsFromView()" 
+                    [disabled]="aiLoading"
+                    class="ai-tool-btn tags-btn">
+              <i class="material-icons" [class.spinning]="aiLoading">local_offer</i>
+              <span>Generate Tags</span>
+              <small>AI-powered tagging</small>
+            </button>
+
+            <button (click)="getSuggestionsFromView()" 
+                    [disabled]="aiLoading"
+                    class="ai-tool-btn suggestions-btn">
+              <i class="material-icons" [class.spinning]="aiLoading">lightbulb</i>
+              <span>Get Suggestions</span>
+              <small>Writing improvements</small>
+            </button>
+          </div>
+        </div>
+
+        <!-- AI Error Display -->
+        <div *ngIf="aiError" class="ai-error" (click)="clearAiError()">
+          <i class="material-icons">error</i>
+          {{ aiError }}
+          <button type="button" class="error-close">×</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div> 

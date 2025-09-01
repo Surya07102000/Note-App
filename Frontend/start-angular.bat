@@ -1,0 +1,3 @@
+@echo off
+echo Starting Angular application...
+call npm start 

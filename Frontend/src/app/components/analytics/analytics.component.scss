@@ -1,0 +1,50 @@
+// Custom styles for analytics component
+.analytics-container {
+  .chart-container {
+    position: relative;
+    height: 300px;
+  }
+
+  .summary-card {
+    transition: transform 0.2s ease-in-out;
+    
+    &:hover {
+      transform: translateY(-2px);
+    }
+  }
+
+  .user-rank {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    font-weight: bold;
+  }
+
+  .tag-badge {
+    transition: all 0.2s ease-in-out;
+    
+    &:hover {
+      transform: scale(1.05);
+    }
+  }
+}
+
+// Loading animation
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: .5;
+  }
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+// Responsive adjustments
+@media (max-width: 768px) {
+  .chart-container {
+    height: 250px;
+  }
+} 
