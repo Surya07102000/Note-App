@@ -34,6 +34,10 @@ export class RolesComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+      // Add token validation first
+    if (!this.authService.checkTokenValidity()) {
+      return; // Will redirect to login if token is invalid
+    }
     this.currentUser = this.authService.getCurrentUser();
     this.isAdmin = this.currentUser?.role?.name === 'admin';
     this.loadRolesAndUsers();
