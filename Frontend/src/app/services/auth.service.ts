@@ -42,6 +42,11 @@ export class AuthService {
           localStorage.removeItem('token');
         }
       }
+      else {
+      // Token is invalid, clear everything
+      localStorage.removeItem('user');
+      localStorage.removeItem('token');
+    }
     }
   }
 
