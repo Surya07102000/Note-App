@@ -24,6 +24,10 @@ export class AnalyticsComponent implements OnInit, OnDestroy {
   constructor(private authService: AuthService, private analyticsService: AnalyticsService) {}
 
   ngOnInit(): void {
+      // Add token validation first
+    if (!this.authService.checkTokenValidity()) {
+      return; // Will redirect to login if token is invalid
+    }
     this.user = this.authService.getCurrentUser();
     console.log('Analytics component - Current user:', this.user);
     console.log('Analytics component - User role:', this.user?.role?.name);
