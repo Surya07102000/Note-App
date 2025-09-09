@@ -111,6 +111,7 @@ export class AuthService {
   validateToken(): boolean {
     const token = localStorage.getItem('token');
     if (!token) {
+      this.logout();
       return false;
     }
 
@@ -131,9 +132,5 @@ export class AuthService {
   }
 
   checkTokenValidity(): boolean {
-    if (!this.validateToken()) {
-      return false;
-    }
-    return true;
-  }
+    return this.validateToken();
 } 
