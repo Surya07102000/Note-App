@@ -9,6 +9,7 @@ import { AuthService } from '../../services/auth.service';
 })
 export class NavComponent {
   isMenuOpen = false;
+  isAuthenticated = false;
   menuItems = [
     { path: '/dashboard', icon: 'dashboard', label: 'Dashboard' },
     { path: '/notes', icon: 'note', label: 'Notes' },
@@ -20,6 +21,13 @@ export class NavComponent {
     private router: Router,
     private authService: AuthService
   ) {}
+
+  ngOnInit() {
+    // Subscribe to authentication state changes
+    this.authService.user$.subscribe(user => {
+      this.isAuthenticated = !!user;
+    });
+  }
 
   getCurrentUser() {
     return this.authService.getCurrentUser();
