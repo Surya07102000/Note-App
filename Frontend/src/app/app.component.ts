@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { AuthService } from './services/auth.service';
 
 @Component({
@@ -6,7 +6,7 @@ import { AuthService } from './services/auth.service';
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.scss']
 })
-export class AppComponent {
+export class AppComponent implements OnInit {
   isAuthenticated = false;
 
   constructor(private authService: AuthService) {
@@ -15,5 +15,9 @@ export class AppComponent {
       this.isAuthenticated = !!user;
       console.log('isAuthenticated:', this.isAuthenticated);
     });
+  }
+  ngOnInit() {
+    // Check token validity on app start
+    this.authService.validateToken();
   }
 } 
