@@ -26,6 +26,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
   constructor(private authService: AuthService, private analyticsService: AnalyticsService) {}
 
   ngOnInit(): void {
+    // Add token validation first
+  if (!this.authService.checkTokenValidity()) {
+    return; // Will redirect to login if token is invalid
+  }
     this.user = this.authService.getCurrentUser();
     
     // Only load analytics if user is admin
