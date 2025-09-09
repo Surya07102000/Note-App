@@ -108,4 +108,32 @@ export class AuthService {
   isAuthenticated(): boolean {
     return !!localStorage.getItem('token');
   }
+  validateToken(): boolean {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      return false;
+    }
+
+    try {
+      const tokenData = JSON.parse(atob(token.split('.')[1]));
+      const isExpired = Date.now() >= tokenData.exp * 1000;
+      
+      if (isExpired) {
+        this.logout();
+        return false;
+      }
+      
+      return true;
+    } catch (error) {
+      this.logout();
+      return false;
+    }
+  }
+
+  checkTokenValidity(): boolean {
+    if (!this.validateToken()) {
+      return false;
+    }
+    return true;
+  }
 } 
