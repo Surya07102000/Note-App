@@ -133,4 +133,5 @@ export class AuthService {
 
   checkTokenValidity(): boolean {
     return this.validateToken();
-} 
+}
+}
